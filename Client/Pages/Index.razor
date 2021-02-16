@@ -1,0 +1,43 @@
+﻿@page "/"
+@inject HttpClient Http
+
+<section class="jumbotron text-center">
+	<div class="container">
+		<h1>Subastas</h1>
+		<p class="lead text-muted">Lorem ipsum dolor sit, amet consectetur adipisicing elit. Esse sit id sapiente voluptatem reprehenderit, tempora consequatur officiis consequuntur officia veniam quasi! Qui rerum nam ea quasi aspernatur mollitia, illum vero?</p>
+	</div>
+</section>
+
+<div class="album py-5 bg-light">
+	<div class="container">
+		<div class="row">
+			@foreach (var subasta in subastas)
+			{
+				<div class="col-md-4">
+					<div class="card mb-4 shadow-sm">
+						<img src="@subasta.UrlImagen" alt="@subasta.Nombre" class="card-img-top">
+						<div class="card-body">
+							<h4 class="card-title">
+								@subasta.Nombre
+							</h4>
+						</div>
+						<div class="card-footer">
+							<a href="/subasta/@subasta.Id" class="btn btn-primary btn-block">Ingresar</a>
+						</div>
+					</div>
+				</div>
+			}
+	  </div>
+	</div>
+  </div>
+
+@code {
+	private ICollection<BlazorSubasta.Shared.Subasta> subastas = new List<BlazorSubasta.Shared.Subasta>();
+
+	protected override async Task OnInitializedAsync()
+	{
+		Console.WriteLine("asasas");
+		subastas = await Http.GetFromJsonAsync<ICollection<BlazorSubasta.Shared.Subasta>>("api/Subastas");
+		Console.WriteLine(subastas);
+	}
+}

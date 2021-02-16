@@ -1,0 +1,118 @@
+@page "/subasta/{subastaId}"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@implements IAsyncDisposable
+
+<section class="jumbotron text-center">
+	<div class="container">
+		<h1>Subastas: @subasta.Nombre</h1>
+		<img src="@subasta.UrlImagen" alt="" style="max-width: 320px;" />
+        <p class="text-center">
+            <a href="/" class="btn btn-primary btn-large">Regresar</a>
+        </p>
+	</div>
+</section>
+
+<section>
+    <div class="container">
+        <EditForm Model="@form" OnValidSubmit="EnviarNuevaPuja">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            <div class="form-row">
+                <div class="col">
+                    <InputText @bind-Value="form.Usuario" placeholder="Nombre del comprador" class="form-control" />
+                </div>
+                <div class="col">
+                    <InputNumber @bind-Value="form.Monto" placeholder="Importe" class="form-control" />
+                </div>
+                <div class="col">
+                    <button type="submit" class="btn btn-primary">Enviar</button>
+                </div>
+            </div>
+        </EditForm>
+        <div class="row mt-4">
+            <div class="col-12">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Nombre</th>
+                        <th>Monto S/</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var puja in pujas)
+                    {
+                        <tr>
+                            <td>@puja.Fecha</td>
+                            <td>@puja.Usuario</td>
+                            <td>@puja.Monto/</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
+</section>
+
+
+@code {
+
+    [Parameter]
+    public string SubastaId { get; set; }
+
+    private IList<BlazorSubasta.Shared.Puja> pujas = new List<BlazorSubasta.Shared.Puja>();
+
+    private HubConnection hubConnection;
+
+    private BlazorSubasta.Shared.Subasta subasta = new BlazorSubasta.Shared.Subasta();
+
+    private NuevaPujaForm form = new NuevaPujaForm();
+
+    protected override async Task OnInitializedAsync()
+    {
+        subasta = await Http.GetFromJsonAsync<BlazorSubasta.Shared.Subasta>($"api/Subastas/{SubastaId}");
+        
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(NavigationManager.ToAbsoluteUri("/hubs/subastahub"))
+            .Build();
+        
+        hubConnection.On<string, string>("NuevoComprador", (subastaId, connectionId) => 
+            {
+                Console.WriteLine($"NuevoComprador: subastaId: {subastaId} | connectionId: {connectionId}");
+            });
+
+        hubConnection.On<BlazorSubasta.Shared.Puja>("PujaEnviada", (puja) => 
+            {
+                Console.WriteLine("Puja");
+                pujas.Add(puja);
+                StateHasChanged();
+            });
+        
+        await hubConnection.StartAsync();
+        await hubConnection.SendAsync("UnirseSubasta", SubastaId);
+    }
+
+    public bool IsConnected { get => hubConnection.State == HubConnectionState.Connected; }
+
+    public async ValueTask DisposeAsync()
+    {
+        @* await hubConnection.SendAsync("DejarSubasta"); *@
+        await hubConnection.DisposeAsync();
+    }
+
+    private async Task EnviarNuevaPuja()
+    {
+        var puja = new BlazorSubasta.Shared.Puja
+        {
+            SubastaId = SubastaId,
+            Usuario = form.Usuario,
+            Monto = form.Monto
+        };
+
+        await hubConnection.SendAsync("EnviarPuja", puja);
+    }
+
+}
